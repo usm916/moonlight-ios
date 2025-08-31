@@ -152,8 +152,8 @@ BOOL isCustomResolution(CGSize res) {
     UITapGestureRecognizer *resolutionDisplayViewTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(resolutionDisplayViewTapped:)];
     [self.resolutionDisplayView addGestureRecognizer:resolutionDisplayViewTap];
     
-    resolutionTable[0] = CGSizeMake(640, 360);
-    resolutionTable[1] = CGSizeMake(1280, 720);
+    resolutionTable[0] = CGSizeMake(2560, 1920);
+    resolutionTable[1] = CGSizeMake(1920, 2560);
     resolutionTable[2] = CGSizeMake(1920, 1080);
     resolutionTable[3] = CGSizeMake(3840, 2160);
     resolutionTable[4] = CGSizeMake(safeAreaWidth, fullScreenHeight);
@@ -174,8 +174,14 @@ BOOL isCustomResolution(CGSize res) {
         case 60:
             framerate = 1;
             break;
-        case 120:
-            framerate = 2;
+        case 1:
+            framerate = 3;
+            break;
+        case 6:
+            framerate = 4;
+            break;
+        case 12:
+            framerate = 5;
             break;
     }
 
@@ -292,8 +298,8 @@ BOOL isCustomResolution(CGSize res) {
         NSInteger pixels;
         int factor;
     } resTable[] = {
-        { 640 * 360, 1 },
-        { 854 * 480, 2 },
+        { 2560 * 1920, 1 },
+        { 1920 * 2560, 2 },
         { 1280 * 720, 5 },
         { 1920 * 1080, 10 },
         { 2560 * 1440, 20 },
@@ -477,7 +483,11 @@ BOOL isCustomResolution(CGSize res) {
         case 1:
             return 60;
         case 2:
-            return 120;
+            return 1;
+        case 3:
+            return 6;
+        case 4:
+            return 12;
         default:
             abort();
     }
