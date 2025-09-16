@@ -455,7 +455,6 @@
 				FB89460919F646E200339C8A /* Input */,
 				FB89460E19F646E200339C8A /* Network */,
 				FB89461519F646E200339C8A /* Stream */,
-				FB89461E19F646E200339C8A /* Utility */,
 				FB89462319F646E200339C8A /* ViewControllers */,
 				FBD3495F1A004453002D2A60 /* Database */,
 				FB290CFA19B2C406004C83CF /* Supporting Files */,
@@ -558,6 +557,7 @@
 				FB89461C19F646E200339C8A /* VideoDecoderRenderer.h */,
 				FB89461D19F646E200339C8A /* VideoDecoderRenderer.m */,
 				9803CCAB254F9EAF00EE185E /* ConnectionCallbacks.h */,
+				FB89461E19F646E200339C8A /* Utility */,
 			);
 			path = Stream;
 			sourceTree = "<group>";
