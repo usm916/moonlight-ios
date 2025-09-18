@@ -483,7 +483,10 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 #if !TARGET_OS_TV
     if (@available(iOS 13.4, *)) {
         UITouch* touch = [touches anyObject];
-        if (touch.type == UITouchTypeIndirectPointer) {
+        if (touch != nil && touch.type == UITouchTypeIndirectPointer) {
+            CGPoint touchLocation = [touch locationInView:self];
+            [self updateCursorLocation:touchLocation isMouse:YES forceSend:YES];
+
             if (@available(iOS 14.0, *)) {
                 if ([GCMouse current] != nil) {
                     // We'll handle this with GCMouse. Do nothing here.
@@ -664,9 +667,13 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 
 #if !TARGET_OS_TV
 - (void) updateCursorLocation:(CGPoint)location isMouse:(BOOL)isMouse {
+    [self updateCursorLocation:location isMouse:isMouse forceSend:NO];
+}
+
+- (void) updateCursorLocation:(CGPoint)location isMouse:(BOOL)isMouse forceSend:(BOOL)forceSend {
     CGPoint normalizedLocation = [self adjustCoordinatesForVideoArea:location];
     CGSize videoSize = [self getVideoAreaSize];
-    
+
     // Send the mouse position relative to the video region if it has changed
     // if we're receiving coordinates from a real mouse.
     //
@@ -674,11 +681,11 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     // send it if the value has changed. We will receive one of these events
     // any time the user presses a modifier key, which can result in errant
     // mouse motion when using a Citrix X1 mouse.
-    if (normalizedLocation.x != lastMouseX || normalizedLocation.y != lastMouseY || !isMouse) {
+    if (normalizedLocation.x != lastMouseX || normalizedLocation.y != lastMouseY || forceSend || !isMouse) {
         if (lastMouseX != 0 || lastMouseY != 0 || !isMouse) {
             LiSendMousePositionEvent(normalizedLocation.x, normalizedLocation.y, videoSize.width, videoSize.height);
         }
-        
+
         if (isMouse) {
             lastMouseX = normalizedLocation.x;
             lastMouseY = normalizedLocation.y;
@@ -695,7 +702,7 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
             return nil;
         }
     }
-    
+
     // This logic mimics what iOS does with AVLayerVideoGravityResizeAspect
     CGSize videoSize;
     CGPoint videoOrigin;
@@ -718,8 +725,8 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 }
 
 - (UIPointerStyle *)pointerInteraction:(UIPointerInteraction *)interaction styleForRegion:(UIPointerRegion *)region  API_AVAILABLE(ios(13.4)) {
-    // Always hide the mouse cursor over our stream view
-    return [UIPointerStyle hiddenPointerStyle];
+    // Use the system cursor to provide immediate local feedback when hovering
+    return nil;
 }
 
 - (void)mouseWheelMovedContinuous:(UIPanGestureRecognizer *)gesture {
