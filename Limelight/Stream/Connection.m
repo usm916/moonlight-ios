@@ -16,6 +16,7 @@
 
 #include "Limelight.h"
 #include "opus_multistream.h"
+#include <math.h>
 
 @implementation Connection {
     SERVER_INFORMATION _serverInfo;
@@ -42,6 +43,15 @@ static SDL_AudioDeviceID audioDevice;
 static OPUS_MULTISTREAM_CONFIGURATION audioConfig;
 static void* audioBuffer;
 static int audioFrameSize;
+static const double kMinPendingAudioLimitMs = 30.0;
+static const double kMaxPendingAudioLimitMs = 120.0;
+static const double kAudioUnderrunWindowSeconds = 1.0;
+static const double kAudioHealthyWindowSeconds = 5.0;
+static double pendingAudioLimitMs = kMinPendingAudioLimitMs;
+static int recentAudioUnderrunCount;
+static CFTimeInterval lastAudioUnderrunTime;
+static CFTimeInterval lastHealthyAudioQueueTime;
+static BOOL audioQueuePrimed;
 
 static VideoDecoderRenderer* renderer;
 
@@ -236,7 +246,13 @@ int ArInit(int audioConfiguration, POPUS_MULTISTREAM_CONFIGURATION opusConfig, v
     
     // Disable lowering volume of other audio streams (SDL sets AVAudioSessionCategoryOptionDuckOthers by default)
     [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback withOptions:AVAudioSessionCategoryOptionMixWithOthers error:nil];
-    
+
+    pendingAudioLimitMs = kMinPendingAudioLimitMs;
+    recentAudioUnderrunCount = 0;
+    lastAudioUnderrunTime = 0;
+    lastHealthyAudioQueueTime = 0;
+    audioQueuePrimed = NO;
+
     return 0;
 }
 
@@ -263,26 +279,125 @@ void ArCleanup(void)
 void ArDecodeAndPlaySample(char* sampleData, int sampleLength)
 {
     int decodeLen;
-    
-    // Don't queue if there's already more than 30 ms of audio data waiting
-    // in Moonlight's audio queue.
-    if (LiGetPendingAudioDuration() > 30) {
+    CFTimeInterval now = CACurrentMediaTime();
+    Uint32 queuedBytes = SDL_GetQueuedAudioSize(audioDevice);
+    double bytesPerSecond = (double)audioConfig.sampleRate * audioConfig.channelCount * sizeof(short);
+    double queueDurationMs = 0.0;
+    double frameDurationMs = 0.0;
+    double underrunThresholdMs;
+
+    if (audioConfig.sampleRate > 0) {
+        frameDurationMs = ((double)audioConfig.samplesPerFrame * 1000.0) / (double)audioConfig.sampleRate;
+    }
+
+    if (bytesPerSecond > 0) {
+        queueDurationMs = ((double)queuedBytes * 1000.0) / bytesPerSecond;
+    }
+
+    underrunThresholdMs = frameDurationMs * 0.5;
+    if (underrunThresholdMs < 2.0) {
+        underrunThresholdMs = 2.0;
+    }
+
+    if (!audioQueuePrimed && queueDurationMs > 0.0) {
+        audioQueuePrimed = YES;
+    }
+
+    if (audioQueuePrimed && queueDurationMs <= underrunThresholdMs) {
+        if (lastAudioUnderrunTime != 0 && now - lastAudioUnderrunTime <= kAudioUnderrunWindowSeconds) {
+            recentAudioUnderrunCount++;
+        }
+        else {
+            recentAudioUnderrunCount = 1;
+        }
+
+        lastAudioUnderrunTime = now;
+        lastHealthyAudioQueueTime = 0;
+
+        if (pendingAudioLimitMs < kMaxPendingAudioLimitMs && recentAudioUnderrunCount >= 3) {
+            double previousLimit = pendingAudioLimitMs;
+            pendingAudioLimitMs += 20.0;
+            if (pendingAudioLimitMs > kMaxPendingAudioLimitMs) {
+                pendingAudioLimitMs = kMaxPendingAudioLimitMs;
+            }
+            Log(LOG_I, @"Audio underruns detected. Increasing pending audio limit from %.0f ms to %.0f ms", previousLimit, pendingAudioLimitMs);
+            recentAudioUnderrunCount = 0;
+        }
+    }
+    else if (audioQueuePrimed && queueDurationMs > underrunThresholdMs) {
+        recentAudioUnderrunCount = 0;
+    }
+
+    // Don't queue if there's already more pending audio than our dynamic
+    // threshold waiting in Moonlight's audio queue.
+    if (LiGetPendingAudioDuration() > pendingAudioLimitMs) {
         return;
     }
-    
+
     decodeLen = opus_multistream_decode(opusDecoder, (unsigned char *)sampleData, sampleLength,
                                         (short*)audioBuffer, audioConfig.samplesPerFrame, 0);
     if (decodeLen > 0) {
         // Provide backpressure on the queue to ensure too many frames don't build up
         // in SDL's audio queue.
-        while (SDL_GetQueuedAudioSize(audioDevice) / audioFrameSize > 10) {
+        int maxQueueFrames = 10;
+        if (frameDurationMs > 0.0) {
+            double maxQueueMs = pendingAudioLimitMs + frameDurationMs;
+            int dynamicMaxFrames = (int)ceil(maxQueueMs / frameDurationMs);
+            if (dynamicMaxFrames > maxQueueFrames) {
+                maxQueueFrames = dynamicMaxFrames;
+            }
+        }
+
+        while ((SDL_GetQueuedAudioSize(audioDevice) / audioFrameSize) > maxQueueFrames) {
             SDL_Delay(1);
         }
-        
+
         if (SDL_QueueAudio(audioDevice,
                            audioBuffer,
                            sizeof(short) * decodeLen * audioConfig.channelCount) < 0) {
             Log(LOG_E, @"Failed to queue audio sample: %s\n", SDL_GetError());
+        }
+        else {
+            Uint32 queuedBytesAfter = SDL_GetQueuedAudioSize(audioDevice);
+            double queueDurationMsAfter = 0.0;
+            double healthyThresholdMs = underrunThresholdMs * 1.5;
+            CFTimeInterval afterQueueTime = CACurrentMediaTime();
+
+            if (healthyThresholdMs < 6.0) {
+                healthyThresholdMs = 6.0;
+            }
+
+            if (bytesPerSecond > 0) {
+                queueDurationMsAfter = ((double)queuedBytesAfter * 1000.0) / bytesPerSecond;
+            }
+
+            if (queueDurationMsAfter > 0.0) {
+                audioQueuePrimed = YES;
+            }
+
+            if (queueDurationMsAfter >= healthyThresholdMs) {
+                if (lastHealthyAudioQueueTime == 0) {
+                    lastHealthyAudioQueueTime = afterQueueTime;
+                }
+            }
+            else {
+                lastHealthyAudioQueueTime = 0;
+            }
+
+            if (pendingAudioLimitMs > kMinPendingAudioLimitMs &&
+                lastHealthyAudioQueueTime != 0 &&
+                afterQueueTime - lastHealthyAudioQueueTime >= kAudioHealthyWindowSeconds &&
+                (lastAudioUnderrunTime == 0 || afterQueueTime - lastAudioUnderrunTime >= kAudioHealthyWindowSeconds)) {
+                double previousLimit = pendingAudioLimitMs;
+                pendingAudioLimitMs -= 10.0;
+                if (pendingAudioLimitMs < kMinPendingAudioLimitMs) {
+                    pendingAudioLimitMs = kMinPendingAudioLimitMs;
+                }
+
+                Log(LOG_I, @"Audio queue stable. Reducing pending audio limit from %.0f ms to %.0f ms", previousLimit, pendingAudioLimitMs);
+
+                lastHealthyAudioQueueTime = afterQueueTime;
+            }
         }
     }
 }
