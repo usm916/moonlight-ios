@@ -251,8 +251,10 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     // legacy touch handling for hosts without pen support.
     stylusHoverActive = NO;
 
-    // Don't touch stylus events if the host doesn't support them. We want to pass
-    // them as normal touches for legacy hosts that don't understand pen events.
+    // Don't touch stylus events if the host doesn't support them. The negotiated
+    // host feature flags (LiGetHostFeatureFlags) let us detect pen support, so we
+    // can fall back to normal touches for legacy hosts that don't understand pen
+    // events.
     if (!(LiGetHostFeatureFlags() & LI_FF_PEN_TOUCH_EVENTS)) {
         return NO;
     }
