@@ -251,6 +251,9 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
         return NO;
     }
 
+    // Clear any active hover state so that pointer updates and other
+    // touch-processing paths continue normally once the stylus is in
+    // contact with the screen.
     stylusHoverActive = NO;
 
     switch (event.phase) {
