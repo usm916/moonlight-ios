@@ -34,6 +34,8 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     float lastMouseY;
     CGPoint lastScrollTranslation;
     
+    BOOL stylusHoverActive;
+    
     // Citrix X1 mouse support
     X1Mouse* x1mouse;
     double accumulatedMouseDeltaX;
@@ -266,6 +268,11 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
         return NO;
     }
     
+    // Clear any active hover state so that pointer updates and other
+    // touch-processing paths continue normally once the stylus is in
+    // contact with the screen. This must happen even if we fall back to
+    // legacy touch handling for hosts without pen support.
+    
     switch (event.phase) {
         case UITouchPhaseBegan:
             type = LI_TOUCH_EVENT_DOWN;
@@ -295,15 +302,21 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 
 - (void)sendStylusHoverEvent:(UIHoverGestureRecognizer*)gesture API_AVAILABLE(ios(13.0)) {
     uint8_t type;
-    
+
+    BOOL hoverActiveNow = stylusHoverActive;
+
     switch (gesture.state) {
         case UIGestureRecognizerStateBegan:
         case UIGestureRecognizerStateChanged:
             type = LI_TOUCH_EVENT_HOVER;
+            hoverActiveNow = YES;
             break;
 
         case UIGestureRecognizerStateEnded:
+        case UIGestureRecognizerStateCancelled:
+        case UIGestureRecognizerStateFailed:
             type = LI_TOUCH_EVENT_HOVER_LEAVE;
+            hoverActiveNow = NO;
             break;
 
         default:
@@ -331,6 +344,8 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     
     LiSendPenEvent(type, LI_TOOL_TYPE_PEN, 0, location.x / videoSize.width, location.y / videoSize.height,
                    distance, 0.0f, 0.0f, rotationAngle, tiltAngle);
+    
+    stylusHoverActive = hoverActiveNow;
 }
 
 #endif
@@ -664,6 +679,10 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 
 #if !TARGET_OS_TV
 - (void) updateCursorLocation:(CGPoint)location isMouse:(BOOL)isMouse {
+    if (stylusHoverActive && isMouse) {
+        return;
+    }
+
     CGPoint normalizedLocation = [self adjustCoordinatesForVideoArea:location];
     CGSize videoSize = [self getVideoAreaSize];
     
