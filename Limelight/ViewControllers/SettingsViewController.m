@@ -17,7 +17,7 @@
     NSInteger _bitrate;
     NSInteger _lastSelectedResolutionIndex;
 }
-
+	
 @dynamic overrideUserInterfaceStyle;
 
 static NSString* bitrateFormat = @"Bitrate: %.1f Mbps";
@@ -298,8 +298,8 @@ BOOL isCustomResolution(CGSize res) {
         NSInteger pixels;
         int factor;
     } resTable[] = {
-        { 2560 * 1920, 1 },
-        { 1920 * 2560, 2 },
+        { 2560 * 1920, 20 },
+        { 1920 * 2560, 20 },
         { 1280 * 720, 5 },
         { 1920 * 1080, 10 },
         { 2560 * 1440, 20 },
@@ -483,7 +483,7 @@ BOOL isCustomResolution(CGSize res) {
         case 1:
             return 60;
         case 2:
-            return 1;
+            return 120;
         case 3:
             return 6;
         case 4:
