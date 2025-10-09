@@ -245,16 +245,17 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 - (BOOL)sendStylusEvent:(UITouch*)event {
     uint8_t type;
 
+    // Clear any active hover state so that pointer updates and other
+    // touch-processing paths continue normally once the stylus is in
+    // contact with the screen. This must happen even if we fall back to
+    // legacy touch handling for hosts without pen support.
+    stylusHoverActive = NO;
+
     // Don't touch stylus events if the host doesn't support them. We want to pass
     // them as normal touches for legacy hosts that don't understand pen events.
     if (!(LiGetHostFeatureFlags() & LI_FF_PEN_TOUCH_EVENTS)) {
         return NO;
     }
-
-    // Clear any active hover state so that pointer updates and other
-    // touch-processing paths continue normally once the stylus is in
-    // contact with the screen.
-    stylusHoverActive = NO;
 
     switch (event.phase) {
         case UITouchPhaseBegan:
