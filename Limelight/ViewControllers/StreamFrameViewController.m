@@ -47,9 +47,22 @@
     UIScrollView *_scrollView;
     BOOL _userIsInteracting;
     CGSize _keyboardSize;
+    BOOL _hostCursorHidden;
     
 #if !TARGET_OS_TV
     UIScreenEdgePanGestureRecognizer *_exitSwipeRecognizer;
+#endif
+}
+
+- (void)updateHostCursorHidden:(BOOL)hidden
+{
+#if !TARGET_OS_TV
+    if (_hostCursorHidden == hidden) {
+        return;
+    }
+
+    LiSetHostOption(HOST_OPTION_DISABLE_CURSOR, hidden ? 1 : 0);
+    _hostCursorHidden = hidden;
 #endif
 }
 
@@ -222,6 +235,9 @@
 - (void)willMoveToParentViewController:(UIViewController *)parent {
     // Only cleanup when we're being destroyed
     if (parent == nil) {
+#if !TARGET_OS_TV
+        [self updateHostCursorHidden:NO];
+#endif
         [_controllerSupport cleanup];
         [UIApplication sharedApplication].idleTimerDisabled = NO;
         [_streamMan stopStream];
@@ -311,6 +327,9 @@
 
 - (void) returnToMainFrame {
     [self->_streamView cancelAllTouchEvents];
+#if !TARGET_OS_TV
+    [self updateHostCursorHidden:NO];
+#endif
     // Reset display mode back to default
     [self updatePreferredDisplayMode:NO];
     
@@ -375,6 +394,9 @@
 
 - (void) connectionStarted {
     Log(LOG_I, @"Connection started");
+#if !TARGET_OS_TV
+    [self updateHostCursorHidden:YES];
+#endif
     dispatch_async(dispatch_get_main_queue(), ^{
         // Leave the spinner spinning until it's obscured by
         // the first frame of video.
@@ -397,7 +419,10 @@
 
 - (void)connectionTerminated:(int)errorCode {
     Log(LOG_I, @"Connection terminated: %d", errorCode);
-    
+#if !TARGET_OS_TV
+    [self updateHostCursorHidden:NO];
+#endif
+
     unsigned int portFlags = LiGetPortFlagsFromTerminationErrorCode(errorCode);
     unsigned int portTestResults = LiTestClientConnectivity(CONN_TEST_SERVER, 443, portFlags);
     
