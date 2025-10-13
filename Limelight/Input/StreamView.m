@@ -210,7 +210,7 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     float y = point.y - self.bounds.origin.y;
     
     // For some reason, we don't seem to always get to the bounds of the window
-    // so we'll subtract 1 pixel if we're to the left/below of the origin and
+    // so we'll subtract 1 pixel if we're to the left/below of the origin and	
     // and add 1 pixel if we're to the right/above. It should be imperceptible
     // to the user but it will allow activation of gestures that require contact
     // with the edge of the screen (like Aero Snap).

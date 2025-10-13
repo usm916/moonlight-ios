@@ -264,9 +264,9 @@ void ArDecodeAndPlaySample(char* sampleData, int sampleLength)
 {
     int decodeLen;
     
-    // Don't queue if there's already more than 30 ms of audio data waiting
+    // Don't queue if there's already more than 65 ms of audio data waiting
     // in Moonlight's audio queue.
-    if (LiGetPendingAudioDuration() > 30) {
+    if (LiGetPendingAudioDuration() > 65) {
         return;
     }
     
