@@ -71,6 +71,8 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     if (absoluteMouseModeEnabled) {
         [self initializeLocalMouseCursor];
     }
+
+    [interactionDelegate localMouseOverlayActiveDidChange:absoluteMouseModeEnabled];
     
     keysDown = [[NSMutableSet alloc] init];
     keyInputField = [[KeyboardInputField alloc] initWithFrame:CGRectZero];
