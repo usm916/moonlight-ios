@@ -42,6 +42,9 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 
     UIView* mouseCursorView;
     CGPoint mouseCursorHotspotOffset;
+    CADisplayLink* mouseCursorDisplayLink;
+    CGPoint mouseCursorVideoLocation;
+    BOOL mouseCursorVideoLocationValid;
 
     // Citrix X1 mouse support
     X1Mouse* x1mouse;
@@ -198,7 +201,72 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     mouseCursorHotspotOffset = CGPointMake((mouseCursorView.bounds.size.width * 0.5f) - cursorHotspot.x,
                                            (mouseCursorView.bounds.size.height * 0.5f) - cursorHotspot.y);
 
+    mouseCursorVideoLocation = CGPointZero;
+    mouseCursorVideoLocationValid = NO;
+
+    NSInteger targetRefreshRate = 60;
+    if (@available(iOS 10.3, *)) {
+        NSInteger maximumFramesPerSecond = UIScreen.mainScreen.maximumFramesPerSecond;
+        if (maximumFramesPerSecond > 0) {
+            targetRefreshRate = maximumFramesPerSecond;
+        }
+    }
+
+    mouseCursorDisplayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(localMouseCursorDisplayLinkFired:)];
+    if (@available(iOS 15.0, *)) {
+        mouseCursorDisplayLink.preferredFrameRateRange = CAFrameRateRangeMake(1, targetRefreshRate, targetRefreshRate);
+    } else {
+        mouseCursorDisplayLink.preferredFramesPerSecond = targetRefreshRate;
+    }
+    mouseCursorDisplayLink.paused = YES;
+    [mouseCursorDisplayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+
     [self addSubview:mouseCursorView];
+}
+
+- (void)localMouseCursorDisplayLinkFired:(CADisplayLink *)displayLink {
+    if (!absoluteMouseModeEnabled || mouseCursorView == nil || mouseCursorView.hidden || !mouseCursorVideoLocationValid) {
+        return;
+    }
+
+    CGPoint videoOrigin = [self getVideoAreaOrigin];
+    CGPoint cursorCenter = CGPointMake(videoOrigin.x + mouseCursorVideoLocation.x,
+                                       videoOrigin.y + mouseCursorVideoLocation.y);
+    mouseCursorView.center = CGPointMake(cursorCenter.x + mouseCursorHotspotOffset.x,
+                                         cursorCenter.y + mouseCursorHotspotOffset.y);
+}
+
+- (void)didMoveToWindow {
+    [super didMoveToWindow];
+
+    if (mouseCursorDisplayLink == nil) {
+        return;
+    }
+
+    NSInteger targetRefreshRate = 60;
+    if (@available(iOS 10.3, *)) {
+        UIScreen *targetScreen = self.window != nil ? self.window.screen : UIScreen.mainScreen;
+        NSInteger maximumFramesPerSecond = targetScreen.maximumFramesPerSecond;
+        if (maximumFramesPerSecond > 0) {
+            targetRefreshRate = maximumFramesPerSecond;
+        }
+    }
+
+    if (@available(iOS 15.0, *)) {
+        mouseCursorDisplayLink.preferredFrameRateRange = CAFrameRateRangeMake(1, targetRefreshRate, targetRefreshRate);
+    } else {
+        mouseCursorDisplayLink.preferredFramesPerSecond = targetRefreshRate;
+    }
+
+    mouseCursorDisplayLink.paused = (self.window == nil || mouseCursorView.hidden || !mouseCursorVideoLocationValid);
+}
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+
+    if (absoluteMouseModeEnabled && mouseCursorView != nil && !mouseCursorView.hidden && mouseCursorVideoLocationValid) {
+        [self localMouseCursorDisplayLinkFired:mouseCursorDisplayLink];
+    }
 }
 
 - (void)startInteractionTimer {
@@ -780,11 +848,18 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
         return;
     }
 
+    mouseCursorVideoLocation = normalizedLocation;
+    mouseCursorVideoLocationValid = YES;
+
     CGPoint cursorCenter = CGPointMake(videoOrigin.x + normalizedLocation.x,
                                        videoOrigin.y + normalizedLocation.y);
     mouseCursorView.center = CGPointMake(cursorCenter.x + mouseCursorHotspotOffset.x,
                                          cursorCenter.y + mouseCursorHotspotOffset.y);
     mouseCursorView.hidden = NO;
+
+    if (mouseCursorDisplayLink != nil && mouseCursorDisplayLink.isPaused) {
+        mouseCursorDisplayLink.paused = NO;
+    }
 }
 
 - (UIPointerRegion *)pointerInteraction:(UIPointerInteraction *)interaction
@@ -830,7 +905,15 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 
     if (mouseCursorView != nil) {
         mouseCursorView.hidden = YES;
+        mouseCursorVideoLocationValid = NO;
+        if (mouseCursorDisplayLink != nil) {
+            mouseCursorDisplayLink.paused = YES;
+        }
     }
+}
+
+- (void)dealloc {
+    [mouseCursorDisplayLink invalidate];
 }
 
 - (void)mouseWheelMovedContinuous:(UIPanGestureRecognizer *)gesture {
