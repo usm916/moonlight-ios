@@ -47,18 +47,47 @@
     UIScrollView *_scrollView;
     BOOL _userIsInteracting;
     CGSize _keyboardSize;
-    
+
 #if !TARGET_OS_TV
     UIScreenEdgePanGestureRecognizer *_exitSwipeRecognizer;
+    BOOL _localMouseOverlayActive;
+    BOOL _pendingSceneRestrictionUpdate;
+    BOOL _hasSavedSceneSizeRestrictions;
+    BOOL _shouldReapplyLocalMouseOverlayLock;
+    CGSize _savedMinimumSceneSize;
+    CGSize _savedMaximumSceneSize;
 #endif
 }
 
 - (void)viewDidAppear:(BOOL)animated
 {
     [super viewDidAppear:animated];
-    
+
 #if !TARGET_OS_TV
     [[self revealViewController] setPrimaryViewController:self];
+
+    if (_pendingSceneRestrictionUpdate) {
+        [self enforceLocalMouseSceneRestrictions];
+    }
+
+    if (_shouldReapplyLocalMouseOverlayLock) {
+        _shouldReapplyLocalMouseOverlayLock = NO;
+        [self localMouseOverlayActiveDidChange:YES];
+    }
+#endif
+}
+
+- (void)viewWillDisappear:(BOOL)animated
+{
+    [super viewWillDisappear:animated];
+
+#if !TARGET_OS_TV
+    if (_localMouseOverlayActive) {
+        _shouldReapplyLocalMouseOverlayLock = YES;
+        [self localMouseOverlayActiveDidChange:NO];
+    } else if (_hasSavedSceneSizeRestrictions) {
+        [self enforceLocalMouseSceneRestrictions];
+    }
 #endif
 }
 
@@ -658,6 +687,14 @@
     _streamView.frame = CGRectMake(_streamView.frame.origin.x, _streamView.frame.origin.y, size.width, size.height);
     [_streamView refreshOnScreenControls];
     [_streamMan transitionStreamViewSize];
+#if !TARGET_OS_TV
+    if (_localMouseOverlayActive) {
+        __weak typeof(self) weakSelf = self;
+        [coordinator animateAlongsideTransition:nil completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+            [weakSelf enforceLocalMouseSceneRestrictions];
+        }];
+    }
+#endif
 }
 
 - (void) streamExitRequested {
@@ -690,6 +727,60 @@
 }
 
 #if !TARGET_OS_TV
+- (void)localMouseOverlayActiveDidChange:(BOOL)isActive {
+    _localMouseOverlayActive = isActive;
+
+    if (@available(iOS 11.0, *)) {
+        [self setNeedsUpdateOfScreenEdgesDeferringSystemGestures];
+        [self setNeedsUpdateOfHomeIndicatorAutoHidden];
+    }
+
+    [self enforceLocalMouseSceneRestrictions];
+}
+
+- (void)enforceLocalMouseSceneRestrictions {
+    if (@available(iOS 13.0, *)) {
+        UIWindow *window = self.view.window;
+        UIWindowScene *windowScene = window.windowScene;
+
+        if (windowScene == nil) {
+            _pendingSceneRestrictionUpdate = _localMouseOverlayActive;
+            return;
+        }
+
+        UISceneSizeRestrictions *restrictions = windowScene.sizeRestrictions;
+        if (restrictions == nil) {
+            _pendingSceneRestrictionUpdate = NO;
+            return;
+        }
+
+        if (_localMouseOverlayActive) {
+            CGSize targetSize = windowScene.coordinateSpace.bounds.size;
+
+            if (!_hasSavedSceneSizeRestrictions) {
+                _savedMinimumSceneSize = restrictions.minimumSize;
+                _savedMaximumSceneSize = restrictions.maximumSize;
+                _hasSavedSceneSizeRestrictions = YES;
+            }
+
+            if (!CGSizeEqualToSize(targetSize, CGSizeZero)) {
+                restrictions.minimumSize = targetSize;
+                restrictions.maximumSize = targetSize;
+            }
+
+            _pendingSceneRestrictionUpdate = NO;
+        } else {
+            if (_hasSavedSceneSizeRestrictions) {
+                restrictions.minimumSize = _savedMinimumSceneSize;
+                restrictions.maximumSize = _savedMaximumSceneSize;
+                _hasSavedSceneSizeRestrictions = NO;
+            }
+
+            _pendingSceneRestrictionUpdate = NO;
+        }
+    }
+}
+
 // Require a confirmation when streaming to activate a system gesture
 - (UIRectEdge)preferredScreenEdgesDeferringSystemGestures {
     return UIRectEdgeAll;
@@ -720,7 +811,15 @@
     // Pointer lock breaks the UIKit mouse APIs, which is a problem because
     // GCMouse is horribly broken on iOS 14.0 for certain mice. Only lock
     // the cursor if there is a GCMouse present.
+    if (_settings.absoluteTouchMode || _settings.passthroughTouchMode) {
+        return NO;
+    }
+
     return [GCMouse mice].count > 0;
+}
+#else
+- (void)localMouseOverlayActiveDidChange:(BOOL)isActive {
+    (void)isActive;
 }
 #endif
 

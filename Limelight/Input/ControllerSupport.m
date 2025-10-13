@@ -46,6 +46,8 @@ static const double MOUSE_SPEED_DIVISOR = 1.25;
     char _controllerNumbers;
     bool _multiController;
     bool _swapABXYButtons;
+
+    BOOL _absoluteMouseModeEnabled;
 }
 
 // UPDATE_BUTTON_FLAG(controller, flag, pressed)
@@ -847,41 +849,63 @@ static const double MOUSE_SPEED_DIVISOR = 1.25;
 }
 
 -(void) registerMouseCallbacks:(GCMouse*) mouse API_AVAILABLE(ios(14.0)) {
-    mouse.mouseInput.mouseMovedHandler = ^(GCMouseInput * _Nonnull mouse, float deltaX, float deltaY) {
-        self->accumulatedDeltaX += deltaX / MOUSE_SPEED_DIVISOR;
-        self->accumulatedDeltaY += -deltaY / MOUSE_SPEED_DIVISOR;
-        
-        short truncatedDeltaX = (short)self->accumulatedDeltaX;
-        short truncatedDeltaY = (short)self->accumulatedDeltaY;
-        
-        if (truncatedDeltaX != 0 || truncatedDeltaY != 0) {
-            LiSendMouseMoveEvent(truncatedDeltaX, truncatedDeltaY);
-            
-            self->accumulatedDeltaX -= truncatedDeltaX;
-            self->accumulatedDeltaY -= truncatedDeltaY;
-        }
-    };
-    
-    mouse.mouseInput.leftButton.pressedChangedHandler = ^(GCControllerButtonInput * _Nonnull button, float value, BOOL pressed) {
-        LiSendMouseButtonEvent(pressed ? BUTTON_ACTION_PRESS : BUTTON_ACTION_RELEASE, BUTTON_LEFT);
-    };
-    mouse.mouseInput.middleButton.pressedChangedHandler = ^(GCControllerButtonInput * _Nonnull button, float value, BOOL pressed) {
-        LiSendMouseButtonEvent(pressed ? BUTTON_ACTION_PRESS : BUTTON_ACTION_RELEASE, BUTTON_MIDDLE);
-    };
-    mouse.mouseInput.rightButton.pressedChangedHandler = ^(GCControllerButtonInput * _Nonnull button, float value, BOOL pressed) {
-        LiSendMouseButtonEvent(pressed ? BUTTON_ACTION_PRESS : BUTTON_ACTION_RELEASE, BUTTON_RIGHT);
-    };
-    
+    if (_absoluteMouseModeEnabled) {
+        mouse.mouseInput.mouseMovedHandler = nil;
+    }
+    else {
+        mouse.mouseInput.mouseMovedHandler = ^(GCMouseInput * _Nonnull mouse, float deltaX, float deltaY) {
+            self->accumulatedDeltaX += deltaX / MOUSE_SPEED_DIVISOR;
+            self->accumulatedDeltaY += -deltaY / MOUSE_SPEED_DIVISOR;
+
+            short truncatedDeltaX = (short)self->accumulatedDeltaX;
+            short truncatedDeltaY = (short)self->accumulatedDeltaY;
+
+            if (truncatedDeltaX != 0 || truncatedDeltaY != 0) {
+                LiSendMouseMoveEvent(truncatedDeltaX, truncatedDeltaY);
+
+                self->accumulatedDeltaX -= truncatedDeltaX;
+                self->accumulatedDeltaY -= truncatedDeltaY;
+            }
+        };
+    }
+
+    if (_absoluteMouseModeEnabled) {
+        mouse.mouseInput.leftButton.pressedChangedHandler = nil;
+        mouse.mouseInput.middleButton.pressedChangedHandler = nil;
+        mouse.mouseInput.rightButton.pressedChangedHandler = nil;
+    }
+    else {
+        mouse.mouseInput.leftButton.pressedChangedHandler = ^(GCControllerButtonInput * _Nonnull button, float value, BOOL pressed) {
+            LiSendMouseButtonEvent(pressed ? BUTTON_ACTION_PRESS : BUTTON_ACTION_RELEASE, BUTTON_LEFT);
+        };
+        mouse.mouseInput.middleButton.pressedChangedHandler = ^(GCControllerButtonInput * _Nonnull button, float value, BOOL pressed) {
+            LiSendMouseButtonEvent(pressed ? BUTTON_ACTION_PRESS : BUTTON_ACTION_RELEASE, BUTTON_MIDDLE);
+        };
+        mouse.mouseInput.rightButton.pressedChangedHandler = ^(GCControllerButtonInput * _Nonnull button, float value, BOOL pressed) {
+            LiSendMouseButtonEvent(pressed ? BUTTON_ACTION_PRESS : BUTTON_ACTION_RELEASE, BUTTON_RIGHT);
+        };
+    }
+
     if (mouse.mouseInput.auxiliaryButtons != nil) {
         if (mouse.mouseInput.auxiliaryButtons.count >= 1) {
-            mouse.mouseInput.auxiliaryButtons[0].pressedChangedHandler = ^(GCControllerButtonInput * _Nonnull button, float value, BOOL pressed) {
-                LiSendMouseButtonEvent(pressed ? BUTTON_ACTION_PRESS : BUTTON_ACTION_RELEASE, BUTTON_X1);
-            };
+            if (_absoluteMouseModeEnabled) {
+                mouse.mouseInput.auxiliaryButtons[0].pressedChangedHandler = nil;
+            }
+            else {
+                mouse.mouseInput.auxiliaryButtons[0].pressedChangedHandler = ^(GCControllerButtonInput * _Nonnull button, float value, BOOL pressed) {
+                    LiSendMouseButtonEvent(pressed ? BUTTON_ACTION_PRESS : BUTTON_ACTION_RELEASE, BUTTON_X1);
+                };
+            }
         }
         if (mouse.mouseInput.auxiliaryButtons.count >= 2) {
-            mouse.mouseInput.auxiliaryButtons[1].pressedChangedHandler = ^(GCControllerButtonInput * _Nonnull button, float value, BOOL pressed) {
-                LiSendMouseButtonEvent(pressed ? BUTTON_ACTION_PRESS : BUTTON_ACTION_RELEASE, BUTTON_X2);
-            };
+            if (_absoluteMouseModeEnabled) {
+                mouse.mouseInput.auxiliaryButtons[1].pressedChangedHandler = nil;
+            }
+            else {
+                mouse.mouseInput.auxiliaryButtons[1].pressedChangedHandler = ^(GCControllerButtonInput * _Nonnull button, float value, BOOL pressed) {
+                    LiSendMouseButtonEvent(pressed ? BUTTON_ACTION_PRESS : BUTTON_ACTION_RELEASE, BUTTON_X2);
+                };
+            }
         }
     }
     
@@ -1088,7 +1112,9 @@ static const double MOUSE_SPEED_DIVISOR = 1.25;
     _oscController.playerIndex = 0;
 
     DataManager* dataMan = [[DataManager alloc] init];
-    _oscEnabled = (OnScreenControlsLevel)[[dataMan getSettings].onscreenControls integerValue] != OnScreenControlsLevelOff;
+    TemporarySettings* settings = [dataMan getSettings];
+    _oscEnabled = (OnScreenControlsLevel)[settings.onscreenControls integerValue] != OnScreenControlsLevelOff;
+    _absoluteMouseModeEnabled = settings.absoluteTouchMode || settings.passthroughTouchMode;
     
     Log(LOG_I, @"Number of supported controllers connected: %d", [ControllerSupport getGamepadCount]);
     Log(LOG_I, @"Multi-controller: %d", _multiController);

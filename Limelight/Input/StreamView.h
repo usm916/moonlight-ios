@@ -15,6 +15,7 @@
 
 - (void) userInteractionBegan;
 - (void) userInteractionEnded;
+- (void) localMouseOverlayActiveDidChange:(BOOL)isActive;
 
 @end
 
