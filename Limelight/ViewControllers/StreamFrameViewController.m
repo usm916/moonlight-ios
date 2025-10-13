@@ -720,6 +720,10 @@
     // Pointer lock breaks the UIKit mouse APIs, which is a problem because
     // GCMouse is horribly broken on iOS 14.0 for certain mice. Only lock
     // the cursor if there is a GCMouse present.
+    if (_settings.absoluteTouchMode || _settings.passthroughTouchMode) {
+        return NO;
+    }
+
     return [GCMouse mice].count > 0;
 }
 #endif
