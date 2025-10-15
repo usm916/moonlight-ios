@@ -44,6 +44,7 @@
     self.multiController = [[NSUserDefaults standardUserDefaults] boolForKey:@"multipleControllers"];
     self.swapABXYButtons = [[NSUserDefaults standardUserDefaults] boolForKey:@"swapABXYButtons"];
     self.btMouseSupport = [[NSUserDefaults standardUserDefaults] boolForKey:@"btMouseSupport"];
+    self.absoluteMouseMode = NO;
     self.statsOverlay = [[NSUserDefaults standardUserDefaults] boolForKey:@"statsOverlay"];
     
     NSInteger _screenSize = [[NSUserDefaults standardUserDefaults] integerForKey:@"streamResolution"];
@@ -83,6 +84,7 @@
     self.swapABXYButtons = settings.swapABXYButtons;
     self.onscreenControls = settings.onscreenControls;
     self.btMouseSupport = settings.btMouseSupport;
+    self.absoluteMouseMode = settings.absoluteMouseMode;
     self.absoluteTouchMode = settings.absoluteTouchMode;
     self.passthroughTouchMode = settings.passthroughTouchMode;
     self.statsOverlay = settings.statsOverlay;

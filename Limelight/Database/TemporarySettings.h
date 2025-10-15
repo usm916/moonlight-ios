@@ -32,6 +32,7 @@
 @property (nonatomic) BOOL optimizeGames;
 @property (nonatomic) BOOL enableHdr;
 @property (nonatomic) BOOL btMouseSupport;
+@property (nonatomic) BOOL absoluteMouseMode;
 @property (nonatomic) BOOL absoluteTouchMode;
 @property (nonatomic) BOOL passthroughTouchMode;
 @property (nonatomic) BOOL statsOverlay;

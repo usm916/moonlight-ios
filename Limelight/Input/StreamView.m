@@ -65,7 +65,7 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     self->keyboardGestureNFingers = 3;
     
     TemporarySettings* settings = [[[DataManager alloc] init] getSettings];
-    absoluteMouseModeEnabled = settings.absoluteTouchMode || settings.passthroughTouchMode;
+    absoluteMouseModeEnabled = settings.absoluteMouseMode && (settings.absoluteTouchMode || settings.passthroughTouchMode);
     mousePositionValid = NO;
 
     if (absoluteMouseModeEnabled) {

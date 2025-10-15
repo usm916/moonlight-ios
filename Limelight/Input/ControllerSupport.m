@@ -1114,7 +1114,7 @@ static const double MOUSE_SPEED_DIVISOR = 1.25;
     DataManager* dataMan = [[DataManager alloc] init];
     TemporarySettings* settings = [dataMan getSettings];
     _oscEnabled = (OnScreenControlsLevel)[settings.onscreenControls integerValue] != OnScreenControlsLevelOff;
-    _absoluteMouseModeEnabled = settings.absoluteTouchMode || settings.passthroughTouchMode;
+    _absoluteMouseModeEnabled = settings.absoluteMouseMode && (settings.absoluteTouchMode || settings.passthroughTouchMode);
     
     Log(LOG_I, @"Number of supported controllers connected: %d", [ControllerSupport getGamepadCount]);
     Log(LOG_I, @"Multi-controller: %d", _multiController);

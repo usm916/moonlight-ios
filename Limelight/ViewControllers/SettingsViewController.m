@@ -250,6 +250,8 @@ BOOL isCustomResolution(CGSize res) {
     [self.touchModeSelector addTarget:self action:@selector(touchModeChanged) forControlEvents:UIControlEventValueChanged];
     [self.passthroughTouchModeSelector setSelectedSegmentIndex:currentSettings.passthroughTouchMode ? 1 : 0];
     [self.passthroughTouchModeSelector setEnabled:currentSettings.absoluteTouchMode];
+    [self.absoluteMouseModeSelector setSelectedSegmentIndex:currentSettings.absoluteMouseMode ? 1 : 0];
+    [self.absoluteMouseModeSelector setEnabled:currentSettings.absoluteTouchMode];
     [self.statsOverlaySelector setSelectedSegmentIndex:currentSettings.statsOverlay ? 1 : 0];
     [self.btMouseSelector setSelectedSegmentIndex:currentSettings.btMouseSupport ? 1 : 0];
     [self.optimizeSettingsSelector setSelectedSegmentIndex:currentSettings.optimizeGames ? 1 : 0];
@@ -271,12 +273,20 @@ BOOL isCustomResolution(CGSize res) {
     [self.bitrateSlider addTarget:self action:@selector(bitrateSliderMoved) forControlEvents:UIControlEventValueChanged];
     [self updateBitrateText];
     [self updateResolutionDisplayViewText];
+
+    [self updateAbsoluteMouseModeAvailability];
+}
+
+- (void)updateAbsoluteMouseModeAvailability {
+    BOOL absoluteTouchSelected = [self.touchModeSelector selectedSegmentIndex] == 1;
+    [self.absoluteMouseModeSelector setEnabled:absoluteTouchSelected];
 }
 
 - (void) touchModeChanged {
     // Disable on-screen controls in absolute touch mode
     [self.onscreenControlSelector setEnabled:[self.touchModeSelector selectedSegmentIndex] == 0];
     [self.passthroughTouchModeSelector setEnabled:[self.touchModeSelector selectedSegmentIndex] == 1];
+    [self updateAbsoluteMouseModeAvailability];
 }
 
 - (void) updateBitrate {
@@ -548,6 +558,7 @@ BOOL isCustomResolution(CGSize res) {
     uint32_t preferredCodec = [self getChosenCodecPreference];
     BOOL btMouseSupport = [self.btMouseSelector selectedSegmentIndex] == 1;
     BOOL useFramePacing = [self.framePacingSelector selectedSegmentIndex] == 1;
+    BOOL absoluteMouseMode = [self.absoluteMouseModeSelector selectedSegmentIndex] == 1;
     BOOL absoluteTouchMode = [self.touchModeSelector selectedSegmentIndex] == 1;
     BOOL passthroughTouchMode = [self.passthroughTouchModeSelector selectedSegmentIndex] == 1;
     BOOL statsOverlay = [self.statsOverlaySelector selectedSegmentIndex] == 1;
@@ -566,9 +577,10 @@ BOOL isCustomResolution(CGSize res) {
                       useFramePacing:useFramePacing
                            enableHdr:enableHdr
                       btMouseSupport:btMouseSupport
-                   absoluteTouchMode:absoluteTouchMode
-                passthroughTouchMode:passthroughTouchMode
-                        statsOverlay:statsOverlay];
+                    absoluteMouseMode:absoluteMouseMode
+                  absoluteTouchMode:absoluteTouchMode
+               passthroughTouchMode:passthroughTouchMode
+                       statsOverlay:statsOverlay];
 }
 
 - (void)didReceiveMemoryWarning {
