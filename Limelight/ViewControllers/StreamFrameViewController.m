@@ -47,7 +47,6 @@
     UIScrollView *_scrollView;
     BOOL _userIsInteracting;
     CGSize _keyboardSize;
-    BOOL _hostCursorHidden;
     
 #if !TARGET_OS_TV
     UIScreenEdgePanGestureRecognizer *_exitSwipeRecognizer;
@@ -61,12 +60,6 @@
         return;
     }
 
-    if (_hostCursorHidden == hidden) {
-        return;
-    }
-
-    LiSetHostOption(HOST_OPTION_DISABLE_CURSOR, hidden ? 1 : 0);
-    _hostCursorHidden = hidden;
 #endif
 }
 
