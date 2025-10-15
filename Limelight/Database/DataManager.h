@@ -27,6 +27,7 @@
                   useFramePacing:(BOOL)useFramePacing
                        enableHdr:(BOOL)enableHdr
                   btMouseSupport:(BOOL)btMouseSupport
+                absoluteMouseMode:(BOOL)absoluteMouseMode
                absoluteTouchMode:(BOOL)absoluteTouchMode
             passthroughTouchMode:(BOOL)passthroughTouchMode
                     statsOverlay:(BOOL)statsOverlay;

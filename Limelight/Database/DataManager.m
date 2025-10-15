@@ -66,6 +66,7 @@
                   useFramePacing:(BOOL)useFramePacing
                        enableHdr:(BOOL)enableHdr
                   btMouseSupport:(BOOL)btMouseSupport
+                absoluteMouseMode:(BOOL)absoluteMouseMode
                absoluteTouchMode:(BOOL)absoluteTouchMode
             passthroughTouchMode:(BOOL)passthroughTouchMode
                     statsOverlay:(BOOL)statsOverlay {
@@ -86,6 +87,7 @@
         settingsToSave.useFramePacing = useFramePacing;
         settingsToSave.enableHdr = enableHdr;
         settingsToSave.btMouseSupport = btMouseSupport;
+        settingsToSave.absoluteMouseMode = absoluteMouseMode;
         settingsToSave.absoluteTouchMode = absoluteTouchMode;
         settingsToSave.passthroughTouchMode = passthroughTouchMode;
         settingsToSave.statsOverlay = statsOverlay;

@@ -57,6 +57,10 @@
 - (void)updateHostCursorHidden:(BOOL)hidden
 {
 #if !TARGET_OS_TV
+    if (!_settings.absoluteMouseMode) {
+        return;
+    }
+
     if (_hostCursorHidden == hidden) {
         return;
     }
@@ -745,7 +749,7 @@
     // Pointer lock breaks the UIKit mouse APIs, which is a problem because
     // GCMouse is horribly broken on iOS 14.0 for certain mice. Only lock
     // the cursor if there is a GCMouse present.
-    if (_settings.absoluteTouchMode || _settings.passthroughTouchMode) {
+    if (_settings.absoluteMouseMode) {
         return NO;
     }
 
